@@ -7,7 +7,7 @@ import mediapipe as mp
 from scipy import stats
 import tensorflow as tf
 
-model = tf.keras.saving.load_model("./Models/rnn33.keras")
+model = tf.keras.saving.load_model("../Models/model.keras")
 
 
 
@@ -101,10 +101,12 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
         # 2. Prediction logic
         keypoints = extract_keypoints(results)
         sequence.append(keypoints)
-        sequence = sequence[-33:]
+        sequence = sequence[-100:]
         
-        if len(sequence) == 33:
-            res = model.predict(np.expand_dims(sequence, axis=0))[0]
+        if len(sequence) == 100:
+            X = np.expand_dims(sequence, axis=0)
+            X_pose, X_face, X_lh, X_rh = X[:,:,:132],X[:,:,132:1536],X[:,:,1536:1599],X[:,:,1599:1662]
+            res = model.predict([X_pose, X_face, X_lh, X_rh])[0]
             print(actions[np.argmax(res)-1])
             predictions.append(np.argmax(res)-1)
             
