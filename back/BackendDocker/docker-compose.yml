@@ -1,0 +1,8 @@
+version: "3"
+services:
+  nginx:
+    container_name: signai-container
+    build:
+      context: .
+      dockerfile: .
+    image: signai-container:latest
