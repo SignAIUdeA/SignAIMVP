@@ -6,7 +6,6 @@ deploy:
   kubectl:
     manifests:
       - deployment_back.yaml
-      - hpa.yaml
 build:
   artifacts:
     - image: signai-image
