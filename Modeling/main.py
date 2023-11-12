@@ -7,7 +7,7 @@ import mediapipe as mp
 from scipy import stats
 import tensorflow as tf
 
-model = tf.keras.saving.load_model("../Models/model.keras")
+model = tf.keras.saving.load_model("../Models/rnn33.keras")
 
 
 
@@ -56,7 +56,7 @@ def draw_styled_landmarks(image, results):
                              mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
 
                              ) 
-actions = np.array(['Sena 1', 'Sena 2', 'Sena 3','Sena 4','Sena 5'])
+actions = np.array(['Cafe', 'Con gusto', 'Que necesitas','Aromatica','Hola'])
 
 
 
@@ -101,12 +101,12 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
         # 2. Prediction logic
         keypoints = extract_keypoints(results)
         sequence.append(keypoints)
-        sequence = sequence[-100:]
+        sequence = sequence[-33:]
         
-        if len(sequence) == 100:
+        res = ""
+        if len(sequence) == 33:
             X = np.expand_dims(sequence, axis=0)
-            X_pose, X_face, X_lh, X_rh = X[:,:,:132],X[:,:,132:1536],X[:,:,1536:1599],X[:,:,1599:1662]
-            res = model.predict([X_pose, X_face, X_lh, X_rh])[0]
+            res = model.predict([X])[0]
             print(actions[np.argmax(res)-1])
             predictions.append(np.argmax(res)-1)
             
@@ -128,7 +128,7 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
             image = prob_viz(res, actions, image, colors)
             
         cv2.rectangle(image, (0,0), (640, 40), (245, 117, 16), -1)
-        cv2.putText(image, ' '.join(sentence), (3,30), 
+        cv2.putText(image, ' '.join(actions[np.argmax(res)-1]), (3,30), 
                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         
         # Show to screen
