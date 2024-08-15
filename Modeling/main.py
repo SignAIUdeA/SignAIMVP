@@ -6,10 +6,55 @@ import time
 import mediapipe as mp
 from scipy import stats
 import tensorflow as tf
+from tensorflow.keras.utils import register_keras_serializable
+import tensorflow.keras.backend as K
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+from scipy import stats as st
 
-model = tf.keras.saving.load_model("../Models/rnn33.keras")
+def precision(y_true, y_pred):
+    """Precision metric.
+    
+    Only computes a batch-wise average of precision.
+    
+    Computes the precision, a metric for multi-label classification of
+    how many selected items are relevant.
+    """
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred,0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred,0,1)))
+    prec = true_positives / (predicted_positives + K.epsilon())
+    return prec
 
 
+def recall(y_true, y_pred):
+    """ Recall metric.
+    
+    Only computes a batch-wise average of recall.
+    
+    Computes the recall, a metric for multi-label classification of 
+    how many relevant items are selected.
+    """
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred,0,1)))
+    posible_positives = K.sum(K.round(K.clip(y_true,0,1)))
+    rec = true_positives / (posible_positives + K.epsilon())
+    return rec
+
+@register_keras_serializable()
+def f1(y_true, y_pred):
+
+    """ F1 metric.
+
+    Only computes a batch-wise average of F1.
+
+    Computes the F1, a metric for multi-label classification of
+    how many selected items are relevant and how many relevant items are selected.
+    """
+    prec= precision(y_true,y_pred)
+    rec = recall(y_true,y_pred)
+    return 2*((prec*rec)/(prec+rec+K.epsilon()))
+
+
+model = tf.keras.saving.load_model("/home/andresqb/Desktop/SignAI/SignAIMVP/Modeling/Models/agosto-15-2024.keras")
 
 mp_holistic = mp.solutions.holistic # Holistic model
 mp_drawing = mp.solutions.drawing_utils # Drawing utilities
@@ -56,7 +101,7 @@ def draw_styled_landmarks(image, results):
                              mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
 
                              ) 
-actions = np.array(['Cafe', 'Con gusto', 'Que necesitas','Aromatica','Hola'])
+actions = np.array(['Cafe', 'Aromatica', 'Hola','Que necesitas','Con gusto', 'N/A'])
 
 
 
@@ -82,8 +127,7 @@ def prob_viz(res, actions, input_frame, colors):
             print("Max limit is 5 actions", num, len(colors))
     
 
-
-
+result_index = 5
 
 with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
     while cap.isOpened():
@@ -107,28 +151,34 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
         if len(sequence) == 33:
             X = np.expand_dims(sequence, axis=0)
             res = model.predict([X])[0]
-            print(actions[np.argmax(res)-1])
-            predictions.append(np.argmax(res)-1)
+            print(actions[np.argmax(res)])
+            predictions.append(np.argmax(res))
+            
+            if len(predictions) > 15: 
+                predictions = predictions[-15:]
+        #3. Viz logic
+            if np.unique(predictions[-10:])[0]==np.argmax(res): 
+                if res[np.argmax(res)] > threshold: 
+                    if len(sentence) > 0: 
+                        if actions[np.argmax(res)] != sentence[-1]:
+                            sentence.append(np.argmax(res))
+                        else:
+                            sentence.append(np.argmax(res))
+                    else:
+                        sentence.append(np.argmax(res))
+
+
+            if len(sentence) > 15: 
+                sentence = sentence[-15:]
+                result_index = st.mode(sentence)[0] # Mode of the last 30 predictions
             
 
-        #3. Viz logic
-            if np.unique(predictions[-10:])[0]==np.argmax(res)-1: 
-                if res[np.argmax(res)-1] > threshold: 
-                    
-                    if len(sentence) > 0: 
-                        if actions[np.argmax(res)-1] != sentence[-1]:
-                            sentence.append(actions[np.argmax(res)-1])
-                    else:
-                        sentence.append(actions[np.argmax(res)-1])
-
-            if len(sentence) > 5: 
-                sentence = sentence[-5:]
 
             # Viz probabilities
             image = prob_viz(res, actions, image, colors)
             
         cv2.rectangle(image, (0,0), (640, 40), (245, 117, 16), -1)
-        cv2.putText(image, ' '.join(actions[np.argmax(res)-1]), (3,30), 
+        cv2.putText(image, ' '.join(actions[result_index]), (3,30), 
                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         
         # Show to screen
